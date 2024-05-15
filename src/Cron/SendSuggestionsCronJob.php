@@ -169,7 +169,7 @@ class SendSuggestionsCronJob extends \ilCronJob {
             $DIC["tpl"] = $GLOBALS["tpl"] = new ilTemplate("tpl.main_menu.html", true, true, "Services/MainMenu");
         }
 
-        $arr_initial_test_states = ilCrsInitialTestStates::getData([$user_id]);
+        $arr_initial_test_states = ilCrsInitialTestStates::getData([$user_id],$crs_ref_id);
         if (count($arr_initial_test_states) > 0) {
             /**
              * @var ilCrsInitialTestState
@@ -183,23 +183,36 @@ class SendSuggestionsCronJob extends \ilCronJob {
                 return -1;
             }
 
+	    $user_rec['usr_id'] = $user_id;
+	    $user_rec['firstname'] = '';
+	    Suser_rec['lastname'] = '';
+	    $user_rec['matriculation'] = '';
+	    $user_rec['login'] = '';
+	    $user_rec['passed'] = true;
+		
             $test_obj = new ilObjTest($crs_inital_test_state->getCrsitestItestObjId(), false);
             $all_participants = $test_obj->getTestParticipants();
             foreach($all_participants as $part) {
                 if($part['usr_id'] == $user_id) {
-                    $participants[$part['active_id']] = $user_id;
+                    $participants[$part['active_id']] = $user_rec;
                 }
             }
 
+	    
+		
             $data = $test_obj->getAllTestResults($participants, false);
+	    $perc = 0;
             foreach ($data as $row) {
-                $max = $row["max_points"];
-                $res = $row["reached_points"];
+		    if ($row['user_id']==$user_id) {
+			    	$perc = round( (float) $row['percent_value'] * 100, 2);
+                		$max = $row["max_points"];
+                		$res = $row["reached_points"];
+		    }
             }
             if ($max == 0) {
                 return (-1);
             }
-            return round($res * 100 / $max,2);
+            return $perc;
         }
         return (-1);
     }
