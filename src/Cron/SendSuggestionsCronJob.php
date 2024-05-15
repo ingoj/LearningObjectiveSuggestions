@@ -185,7 +185,7 @@ class SendSuggestionsCronJob extends \ilCronJob {
 
 	    $user_rec['usr_id'] = $user_id;
 	    $user_rec['firstname'] = '';
-	    Suser_rec['lastname'] = '';
+	    $user_rec['lastname'] = '';
 	    $user_rec['matriculation'] = '';
 	    $user_rec['login'] = '';
 	    $user_rec['passed'] = true;
