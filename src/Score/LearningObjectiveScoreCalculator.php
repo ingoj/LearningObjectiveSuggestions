@@ -30,7 +30,7 @@ class LearningObjectiveScoreCalculator {
     {
 		$user = $objective_result->getUser();
 		$objective = $objective_result->getLearningObjective();
-		//		$weight_fine = $this->config->getWeightFine($objective);
+		$weight_fine = $this->config->getWeightFine($objective);
 		$study_program = $this->study_program_query->getByUser($user);
 		if ($study_program === NULL) {
 			throw new \ilException("No study program assigned to user $user");
@@ -43,9 +43,14 @@ class LearningObjectiveScoreCalculator {
 		//		if ($weight_fine === null) {
 		//			throw new \ilException(sprintf('Fine weight is not set for learning objective %s', $objective->getTitle()));
 		//		}
+	        if ($weight_fine === null) {
+			$offset = 0;
+		} else {
+			$offset = (int) $weight_fine;
+		}
 		$percentage = $objective_result->getPercentage();
 
-		return (100 - $percentage) * (float)$weight_rough;
+		return (100 - $percentage) * (float)$weight_rough + $offset;
 		//		if ($percentage < 90) {
 		//			$score = (100 - $percentage) * (float) $weight_rough + (float) $weight_fine;
 		//		} else {
