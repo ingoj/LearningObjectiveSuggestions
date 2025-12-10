@@ -23,20 +23,20 @@ SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjectiveSugg
 ?>
 <#4>
 <?php
-foreach(SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjectiveSuggestion::get() as $sug) {
-	/**
-	 * @@var LearningObjectiveSuggestion $sug
-	 */
-	$sug->setIsCronActive(1);
-	$sug->save();
+foreach (SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjectiveSuggestion::get() as $sug) {
+    /**
+     * @@var LearningObjectiveSuggestion $sug
+     */
+    $sug->setIsCalculationActive(1);
+    $sug->save();
 }
 ?>
 
 <#5>
 <?php
-    GLobal $DIC;
+    global $DIC;
 
-    $DIC->database()->query("DELETE t
+$DIC->database()->query("DELETE t
      FROM alo_score t JOIN
           (SELECT user_id, course_obj_id, objective_id, min(id) AS min_id
            FROM alo_score t
@@ -45,7 +45,7 @@ foreach(SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjec
           USING (user_id, course_obj_id, objective_id)
     WHERE id > min_id;");
 
-    $DIC->database()->query("DELETE t
+$DIC->database()->query("DELETE t
          FROM alo_suggestion t JOIN
               (SELECT user_id, course_obj_id, objective_id, min(id) AS min_id
                FROM alo_suggestion t
@@ -55,6 +55,16 @@ foreach(SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjec
         WHERE id > min_id;");
 
 
-    $DIC->database()->query("ALTER TABLE alo_score ADD UNIQUE INDEX (user_Id, course_obj_id, objective_id)");
-    $DIC->database()->query("ALTER TABLE alo_suggestion ADD UNIQUE INDEX (user_Id, course_obj_id, objective_id)");
+$DIC->database()->query("ALTER TABLE alo_score ADD UNIQUE INDEX (user_Id, course_obj_id, objective_id)");
+$DIC->database()->query("ALTER TABLE alo_suggestion ADD UNIQUE INDEX (user_Id, course_obj_id, objective_id)");
+?>
+
+<#6>
+<?php
+global $DIC;
+
+if ($DIC->database()->tableExists('alo_suggestion') && $DIC->database()->tableColumnExists('alo_suggestion', 'is_cron_active')) {
+    $DIC->database()->renameTableColumn('alo_suggestion', 'is_cron_active', 'is_calculation_active');
+}
+
 ?>

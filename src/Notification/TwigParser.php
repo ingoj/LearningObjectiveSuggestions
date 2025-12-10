@@ -1,34 +1,41 @@
 <?php
+
 namespace SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Notification;
 
-class TwigParser implements Parser {
-	public function parse(string $template, array $placeholders): string
-    {
-		$twig = $this->getTwig();
-		$tpl = $twig->createTemplate($template);
+use Twig\Environment;
+use Twig\Loader\ArrayLoader;
 
-		return $tpl->render($placeholders);
-	}
-	public function isValid(string $template, array $placeholders): bool
+class TwigParser implements Parser
+{
+    public function parse(string $template, array $placeholders): string
     {
-		try {
-			$this->parse($template, $placeholders);
+        $twig = $this->getTwig();
+        $tpl = $twig->createTemplate($template);
 
-			return true;
-		} catch (\Exception $e) {
-			return false;
-		}
-	}
-	protected function getTwig(): ?\Twig_Environment
+        return $tpl->render($placeholders);
+    }
+    public function isValid(string $template, array $placeholders): bool
     {
-		static $instance = NULL;
-		if ($instance !== NULL) {
-			return $instance;
-		}
-		$loader = new \Twig_Loader_Array([]);
-		$twig = new \Twig_Environment($loader, array( 'autoescape' => false ));
-		$instance = $twig;
+        try {
+            $this->parse($template, $placeholders);
 
-		return $twig;
-	}
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+    protected function getTwig(): ?Environment
+    {
+        static $instance = null;
+        if ($instance !== null) {
+            return $instance;
+        }
+        /*$loader = new \Twig_Loader_Array([]);
+        $twig = new \Twig_Environment($loader, array( 'autoescape' => false ));*/
+        $loader = new ArrayLoader([]);
+        $twig = new Environment($loader, ['autoescape' => false]);
+        $instance = $twig;
+
+        return $twig;
+    }
 }

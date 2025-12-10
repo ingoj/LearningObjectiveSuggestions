@@ -1,36 +1,55 @@
 <?php
 
-require_once __DIR__ . "/../vendor/autoload.php";
-
 use ILIAS\DI\Container;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Calculation\CalculateScoresAndSuggestions;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\Config;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\ConfigProvider;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfig;
-use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Cron\CalculateScoresAndSuggestionsCronJob;
-use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Cron\SendSuggestionsCronJob;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Log\Log;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Notification\Notification;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Notification\TwigParser;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Score\LearningObjectiveScore;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjectiveSuggestion;
-//use srag\CustomInputGUIs\LearningObjectiveSuggestions\Loader\CustomInputGUIsLoaderDetector;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Calculation\SendSuggestions;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\User\User;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\LearningObjective\LearningObjectiveCourse;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfigProvider;
 
 /**
  * Class ilLearningObjectiveSuggestionsPlugin
  *
  * @author Stefan Wanzenried <sw@studer-raimann.ch>
  */
-class ilLearningObjectiveSuggestionsPlugin extends ilCronHookPlugin
+class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
 {
+    public const PLUGIN_ID = "dhbwautolo";
 
-    const PLUGIN_ID = "dhbwautolo";
-    const PLUGIN_NAME = "LearningObjectiveSuggestions";
+    public const PLUGIN_NAME = "LearningObjectiveSuggestions";
+
     protected static ?ilLearningObjectiveSuggestionsPlugin $instance = null;
-    protected static ?array $cron_instances = null;
 
+    protected ilDBInterface $db;
+
+    /**
+     * @param ilDBInterface              $db
+     * @param ilComponentRepositoryWrite $component_repository
+     * @param string                     $id
+     */
+    public function __construct(
+        ilDBInterface $db,
+        ilComponentRepositoryWrite $component_repository,
+        string $id
+    ) {
+        parent::__construct($db, $component_repository, $id);
+        $this->db = $db;
+    }
+
+    /**
+     * @return ilLearningObjectiveSuggestionsPlugin
+     */
     public static function getInstance(): ilLearningObjectiveSuggestionsPlugin
     {
-        if (static::$instance === NULL) {
+        if (static::$instance === null) {
             global $DIC;
 
             /** @var $component_factory ilComponentFactory */
@@ -44,74 +63,17 @@ class ilLearningObjectiveSuggestionsPlugin extends ilCronHookPlugin
         return static::$instance;
     }
 
-    public static function getCronInstances(): array
-    {
-        global $DIC;
-        $ilDB = $DIC->database();
-        if (static::$cron_instances === NULL) {
-            $config = new ConfigProvider();
-            $log = new Log();
-            $cron1 = new CalculateScoresAndSuggestionsCronJob($ilDB, $config, $log);
-            $cron2 = new SendSuggestionsCronJob($ilDB, $config, new TwigParser(), $log);
-            static::$cron_instances = array(
-                $cron1->getId() => $cron1,
-                $cron2->getId() => $cron2,
-            );
-        }
-
-        return static::$cron_instances;
-    }
-
-    protected ilDBInterface $db;
-
-    public function __construct(
-        ilDBInterface              $db,
-        ilComponentRepositoryWrite $component_repository,
-        string                     $id
-    )
-    {
-        global $DIC;
-        parent::__construct($db, $component_repository, $id);
-        $this->db = $DIC->database();
-    }
-
-
     /**
-     * @return array
+     * @return string
      */
-    public function getCronJobInstances(): array
-    {
-        return self::getCronInstances();
-    }
-
-    public function getCronJobInstance(string $a_job_id): ilCronJob
-    {
-        foreach (static::getCronInstances() as $id => $cron) {
-            if ($a_job_id == $id) {
-                return $cron;
-            }
-        }
-    }
-
     public function getPluginName(): string
     {
         return self::PLUGIN_NAME;
     }
 
-    protected function init(): void
-    {
-        parent::init();
-        if (file_exists(__DIR__ . "/../../../../EventHandling/EventHook/UserDefaults/vendor/autoload.php")) {
-            require_once __DIR__ . "/../../../../EventHandling/EventHook/UserDefaults/vendor/autoload.php";
-        }
-        if (file_exists(__DIR__ . "/../../../../UIComponent/UserInterfaceHook/LearningObjectiveSuggestionsUI/vendor/autoload.php")) {
-            require_once __DIR__ . "/../../../../UIComponent/UserInterfaceHook/LearningObjectiveSuggestionsUI/vendor/autoload.php";
-        }
-        if (file_exists(__DIR__ . "/../../../../UIComponent/UserInterfaceHook/ParticipationCertificate/vendor/autoload.php")) {
-            require_once __DIR__ . "/../../../../UIComponent/UserInterfaceHook/ParticipationCertificate/vendor/autoload.php";
-        }
-    }
-
+    /**
+     * @return bool
+     */
     protected function beforeUninstall(): bool
     {
         $this->db->dropTable(LearningObjectiveScore::TABLE_NAME, false);
@@ -129,5 +91,77 @@ class ilLearningObjectiveSuggestionsPlugin extends ilCronHookPlugin
         return true;
     }
 
+    /**
+     * @param string $a_component
+     * @param string $a_event
+     * @param array  $a_parameter
+     * @return void
+     */
+    public function handleEvent(string $a_component, string $a_event, array $a_parameter): void
+    {
+        if (
+            $a_component == "components/ILIAS/Tracking"
+            && $a_event == 'updateStatus'
+            && $a_parameter['old_status'] == \ilLPStatus::LP_STATUS_IN_PROGRESS_NUM
+            && $a_parameter['status'] > \ilLPStatus::LP_STATUS_IN_PROGRESS_NUM
+        ) {
 
+            global $DIC;
+
+            $config = new ConfigProvider();
+
+            $ref_ids = $config->getCourseRefIds();
+            $tst_ref_ids = ilObject::_getAllReferences($a_parameter['obj_id']);
+
+            $parent_found = false;
+            $parent = 0;
+            foreach ($tst_ref_ids as $ref_id) {
+                $parent = $DIC->repositoryTree()->getParentId($ref_id);
+                if (in_array($parent, $ref_ids)) {
+                    $parent_found = true;
+                    break;
+                }
+            }
+            if ($parent_found && ilObject::_lookupType($parent, true) === 'crs') {
+                $course = new LearningObjectiveCourse(new ilObjCourse($parent, true));
+                if (!$course->getIsCalculationInactive()) {
+                    $user = new User(new ilObjUser($a_parameter['usr_id']));
+                    if ($this->startCalculation($course, $user)) {
+                        $this->sendSuggestions($course, $user);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @param LearningObjectiveCourse $course
+     * @param User                    $user
+     * @return bool
+     */
+    public function startCalculation(LearningObjectiveCourse $course, User $user): bool
+    {
+        $calculation = new CalculateScoresAndSuggestions(
+            $this->db,
+            new ConfigProvider(),
+            new Log()
+        );
+        return $calculation->run($course, $user);
+    }
+
+    /**
+     * @param LearningObjectiveCourse $course
+     * @param User                    $user
+     * @return void
+     */
+    public function sendSuggestions(LearningObjectiveCourse $course, User $user): void
+    {
+        $send_suggestions = new SendSuggestions(
+            $this->db,
+            new ConfigProvider(),
+            new TwigParser(),
+            new Log()
+        );
+        $send_suggestions->run($course, $user);
+    }
 }
