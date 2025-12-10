@@ -17,6 +17,7 @@ use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjective
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Suggestion\LearningObjectiveSuggestionGenerator;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\User\StudyProgramQuery;
 use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\User\User;
+use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfig;
 
 class CalculateScoresAndSuggestions
 {
@@ -50,6 +51,7 @@ class CalculateScoresAndSuggestions
 
         return $hasAtLeastOneUpdate;
     }
+
     protected function runForUser(LearningObjectiveCourse $course, User $user): bool
     {
         $config = new CourseConfigProvider($course);
@@ -63,13 +65,17 @@ class CalculateScoresAndSuggestions
         $set = $this->db->query($this->getSQL($course, $user));
         $objective_results = [];
 
+        $study_program = $study_program_query->getByUser($user);
+
         while ($row = $this->db->fetchObject($set)) {
             $objective = $this->getLearningObjective($course, $row->objective_id);
+            $weightRough = $config->getWeightRough($objective, $study_program);
 
-            if ($study_program_query->getByUser($user) != null) {
+            if ((int) $weightRough > 0 && $study_program_query->getByUser($user) != null) {
                 $objective_results[] = new LearningObjectiveResult($objective, $user);
             }
         }
+
         if (empty($objective_results)) {
             return false;
         }
@@ -102,13 +108,13 @@ class CalculateScoresAndSuggestions
 
         $generator = new LearningObjectiveSuggestionGenerator($config, $learning_objective_query, $this->log);
         $currentScores = $this->getScores($course, $user);
+
         $suggestedScores = $generator->generate($currentScores);
 
         if (!empty($suggestedScores)) {
             $this->createSuggestions($suggestedScores);
             $atLeastOneActionDone = true;
         }
-
         return $atLeastOneActionDone;
     }
     /**
@@ -212,7 +218,8 @@ class CalculateScoresAndSuggestions
 
         return $user;
     }
-    protected function getLearningObjective(LearningObjectiveCourse $course, int $objective_id): LearningObjective
+
+    public function getLearningObjective(LearningObjectiveCourse $course, int $objective_id): LearningObjective
     {
         static $cache = array();
         $cache_key = $course->getId() . $objective_id;
@@ -224,7 +231,8 @@ class CalculateScoresAndSuggestions
 
         return $objective;
     }
-    protected function getSQL(LearningObjectiveCourse $course, User $user): string
+
+    public function getSQL(LearningObjectiveCourse $course, User $user): string
     {
         $sql = 'SELECT DISTINCT loc_user_results.* FROM loc_user_results
 				LEFT JOIN ' . LearningObjectiveScore::TABLE_NAME . ' ON 
