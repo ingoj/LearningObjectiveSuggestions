@@ -147,7 +147,6 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
         );
         $form->setFormAction($this->ctrl->getFormAction($this));
 
-
         $renderer = $DIC->ui()->renderer();
 
         $course_main_config_form = new CourseConfigKSFormGUI(
@@ -411,7 +410,7 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
     protected function saveCourse(): void
     {
         // TODO check it
-       /* global $DIC;
+        global $DIC;
 
         $request = $DIC->http()->request();
 
@@ -431,18 +430,18 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
             $data = $form->getData();
             $tpl = $DIC->ui()->mainTemplate();
 
-            if(!ilObject::_lookupType((int) $data['course']['ref_id'], true) == 'crs') {
+            if(empty($data) || !ilObject::_lookupType((int) $data['course']['ref_id'], true) == 'crs') {
                 $tpl->setOnScreenMessage('failure', $this->pl->txt('ref_id_not_a_course'), true);
-                $this->ctrl->redirect($this, self::CMD_CONFIGURE_COURSE);
+                $this->ctrl->redirect($this, self::CMD_CONFIGURE);
             }
 
             $config = new ConfigProvider();
             $ref_ids = (array) json_decode($config->get('course_ref_ids') ?? '', true);
-            $ref_ids[] = $data['course']['ref_id'];
+            $ref_ids[] = (int) $data['course']['ref_id'];
             $config->set('course_ref_ids', json_encode(array_unique($ref_ids)));
             $this->tpl->setOnScreenMessage('success', $this->pl->txt('course_added'), true);
             $this->ctrl->redirect($this, self::CMD_CONFIGURE);
-        }*/
+        }
     }
 
     /**
@@ -588,9 +587,17 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
             new StudyProgramQuery($config),
             $udef_definition
         );
-        $course_main_config_form->save();
+        $form_with_errors = $course_main_config_form->save();
 
-        $this->ctrl->redirect($this, self::CMD_CONFIGURE_COURSE);
+        if ($form_with_errors === null) {
+            $this->ctrl->redirect($this, self::CMD_CONFIGURE_COURSE);
+        }
+
+        // validation failed: render the submitted form again so the field errors are visible
+        global $DIC;
+        $this->addActions(self::TAB_CONFIGURE_COURSE);
+        $this->initCourseHeader($course);
+        $this->tpl->setContent($DIC->ui()->renderer()->render($form_with_errors));
     }
 
     /**

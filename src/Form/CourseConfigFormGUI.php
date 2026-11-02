@@ -49,19 +49,9 @@ class CourseConfigFormGUI extends \ilPropertyFormGUI
      */
     protected function init(): void
     {
-        $options = $this->udf_definition;
-
         if ($this->config->get('udf_id_study_program')) {
             $this->addRoleAssignmentConfig();
-        } else {
-            $udf = new \ilSelectInputGUI($this->pl->txt('udf_study_program'), 'udf_id_study_program');
-            $udf->setInfo($this->pl->txt('udf_study_program_info'));
-            $udf->setOptions($options);
-            $udf->setRequired(true);
-            $udf->setValue($this->config->get('udf_id_study_program'));
-            $this->addItem($udf);
         }
-
         $this->addCommandButton(\ilLearningObjectiveSuggestionsConfigGUI::CMD_SAVE_ROLES, $this->pl->txt("save"));
         $this->addCommandButton(\ilLearningObjectiveSuggestionsConfigGUI::CMD_CANCEL, $this->pl->txt("cancel"));
     }

@@ -35,7 +35,7 @@ class StudyProgramQuery
     {
         global $DIC;
 
-        $study_program_field_id  =$this->getStudyProgramFieldId();
+        $study_program_field_id = $this->getStudyProgramFieldId();
 
         $values = [];
         if (!empty($study_program_field_id)) {
@@ -108,6 +108,7 @@ class StudyProgramQuery
         $programs = [];
 
         $study_program_field_id = $this->getStudyProgramFieldId();
+
         $field_values = $this->getFieldValues($study_program_field_id);
 
         // Check if field is of type CascadingSelect

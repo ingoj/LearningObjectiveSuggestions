@@ -69,21 +69,25 @@ class CourseConfigKSFormGUI
             $this->pl->txt('configuration')
         );
 
-        $sections_weight_rough = [];
-        $study_programms_all = $this->study_program_query->getAll();
-        foreach ($study_programms_all as $study_program) {
-            $sections_weight_rough[] = $this->buildWeightRoughConfigSections($study_program);
-        }
-
-        $sections = [
-            $udf_id_study_programm_section,
-            $this->buildGeneralConfigSection(),
-            $this->buildWeightFineConfigSection()
+        $all_sections = [
+            'udf_id_study_program' => $udf_id_study_programm_section
         ];
+
+        if ($this->config->get('udf_id_study_program')) {
+            $all_sections['general'] = $this->buildGeneralConfigSection();
+            $all_sections['weight_fine'] = $this->buildWeightFineConfigSection();
+
+            foreach ($this->study_program_query->getAll() as $study_program) {
+                $all_sections['weight_rough_' . $study_program->getId()] = $this->buildWeightRoughConfigSections($study_program);
+            }
+
+            // the form only accepts FormInput instances, drop sections without inputs
+            $all_sections = array_filter($all_sections, static fn($section) => $section !== null);
+        }
 
         return $this->ui->input()->container()->form()->standard(
             $this->ctrl->getFormAction(new ilLearningObjectiveSuggestionsConfigGUI(), 'saveMainConfig'),
-            array_merge($sections, $sections_weight_rough)
+            $all_sections
         );
     }
 
@@ -138,7 +142,7 @@ class CourseConfigKSFormGUI
     }
 
     /**
-     * @return array|\ILIAS\UI\Component\Input\Field\Section|null
+     * @return \ILIAS\UI\Component\Input\Field\Section|null
      * @throws \JsonException
      */
     protected function buildWeightRoughConfigSections(StudyProgram $study_program)
@@ -146,8 +150,8 @@ class CourseConfigKSFormGUI
         $field = $this->ui->input()->field();
         $objectives = $this->objectives;
 
-        if ($objectives === []) {
-            return [];
+        if (empty($objectives)) {
+            return null;
         }
 
         $inputs = [];
@@ -188,41 +192,75 @@ class CourseConfigKSFormGUI
     }
 
     /**
-     * @param CourseConfigProvider $config
-     * @param                      $objectives
-     * @param StudyProgramQuery    $study_program_query
-     * @param array                $udf_definition
-     * @return void
+     * Returns null on success, otherwise the form containing the validation errors
+     * so the caller can render it again.
+     *
+     * @return \ILIAS\UI\Component\Input\Container\Form\Standard|null
      */
     public function save()
     {
         global $DIC;
 
         $request = $DIC->http()->request();
+        $tpl = $DIC->ui()->mainTemplate();
 
         $form = $this->getMainConfigForm();
 
         if (
-            $request->getMethod() == 'POST'
-            && array_key_exists('ref_id', $request->getQueryParams())
-            && array_key_exists('course_ref_id', $request->getQueryParams())
+            $request->getMethod() !== 'POST'
+            || !array_key_exists('course_ref_id', $request->getQueryParams())
         ) {
-            $form = $form->withRequest($request);
-            $data = $form->getData();
+            return $form;
+        }
 
-            foreach ($data as $values) {
-                foreach ($values as $key => $value) {
-                    if ($key == 'udf_id_study_program') {
+        $form = $form->withRequest($request);
+        $data = $form->getData();
+
+        if ($data === null) {
+            // getData() is null as soon as one input fails validation, the
+            // messages are attached to the inputs and shown when the form is rendered
+            $errors = $this->collectErrors($form->getInputs());
+            $tpl->setOnScreenMessage(
+                'failure',
+                $DIC->language()->txt('form_input_not_valid') . ($errors !== [] ? '<br>' . implode('<br>', $errors) : '')
+            );
+            return $form;
+        }
+
+        foreach ($data as $values) {
+            foreach ($values as $key => $value) {
+                if ($key === 'udf_id_study_program') {
+                    // optional group: null if unchecked, otherwise [0 => selected value]
+                    if (is_array($value)) {
                         $this->config->set($key, $value[0]);
-                    } else {
-                        $this->config->set($key, $value);
                     }
+                } else {
+                    $this->config->set($key, $value);
                 }
             }
-
-            $tpl = $DIC->ui()->mainTemplate();
-            $tpl->setOnScreenMessage('success', $this->pl->txt('saved'), true);
         }
+
+        $tpl->setOnScreenMessage('success', $this->pl->txt('saved'), true);
+
+        return null;
+    }
+
+    /**
+     * @param \ILIAS\UI\Component\Input\Input[] $inputs
+     * @return string[]
+     */
+    private function collectErrors(array $inputs): array
+    {
+        $errors = [];
+        foreach ($inputs as $input) {
+            if ($input->getError() !== null) {
+                $errors[] = $input->getLabel() . ': ' . $input->getError();
+            }
+            if ($input instanceof \ILIAS\UI\Component\Input\Field\Group) {
+                $errors = array_merge($errors, $this->collectErrors($input->getInputs()));
+            }
+        }
+        return $errors;
     }
 
     /**
