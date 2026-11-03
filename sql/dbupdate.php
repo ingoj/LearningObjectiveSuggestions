@@ -71,25 +71,28 @@ if ($DIC->database()->tableExists('alo_suggestion') && $DIC->database()->tableCo
 
 <#7>
 <?php
-$query = "SELECT * FROM udf_field_id_map";
 
-$results = $this->db->query($query);
+if ($DIC->database()->tableExists('udf_field_id_map')) {
+    $query = "SELECT * FROM udf_field_id_map";
 
-$udf_definition_data = [];
-while ($row = $this->db->fetchAssoc($results)) {
-    $udf_definition_data[$row['old_field_id']] = $row['field_id'];
-}
+    $results = $this->db->query($query);
 
-/** @var CourseConfig $config */
-$configs = SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfig::where([
-        'cfg_key' => 'udf_id_study_program',
-])->get();
+    $udf_definition_data = [];
+    while ($row = $this->db->fetchAssoc($results)) {
+        $udf_definition_data[$row['old_field_id']] = $row['field_id'];
+    }
 
-if(!empty($configs)) {
-    foreach ($configs as $config) {
-        $value = (int) $config->getValue();
-        $config->setValue($udf_definition_data[$value]);
-        $config->update();
+    /** @var CourseConfig $config */
+    $configs = SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfig::where([
+            'cfg_key' => 'udf_id_study_program',
+    ])->get();
+
+    if(!empty($configs)) {
+        foreach ($configs as $config) {
+            $value = (int) $config->getValue();
+            $config->setValue($udf_definition_data[$value]);
+            $config->update();
+        }
     }
 }
 ?>
