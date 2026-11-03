@@ -100,6 +100,9 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
      */
     protected function configure(): void
     {
+        $table = new LearningObjectiveCourseTableGUI($this);
+        $table->handleTableAction();
+
         $button = ilLinkButton::getInstance();
         $button->setCaption($this->pl->txt("add_course"), false);
         $button->setUrl($this->ctrl->getLinkTarget($this, self::CMD_ADD_COURSE));
@@ -110,7 +113,6 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
         $button_learning_suggestion_generate->setUrl($this->ctrl->getLinkTarget($this, self::CMD_LEARNING_SUGGESTIONS_GENERATE));
         $this->toolbar->addButtonInstance($button_learning_suggestion_generate);
 
-        $table = new LearningObjectiveCourseTableGUI($this);
         $query = new LearningObjectiveCourseQuery(new ConfigProvider());
         $table->setCourses($query->getAll());
         $this->tpl->setContent($table->getHTML());
@@ -430,7 +432,7 @@ class ilLearningObjectiveSuggestionsConfigGUI extends ilPluginConfigGUI
             $data = $form->getData();
             $tpl = $DIC->ui()->mainTemplate();
 
-            if(empty($data) || !ilObject::_lookupType((int) $data['course']['ref_id'], true) == 'crs') {
+            if(empty($data) || ilObject::_lookupType((int) $data['course']['ref_id'], true) != 'crs') {
                 $tpl->setOnScreenMessage('failure', $this->pl->txt('ref_id_not_a_course'), true);
                 $this->ctrl->redirect($this, self::CMD_CONFIGURE);
             }

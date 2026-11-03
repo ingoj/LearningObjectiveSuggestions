@@ -71,6 +71,7 @@ if ($DIC->database()->tableExists('alo_suggestion') && $DIC->database()->tableCo
 
 <#7>
 <?php
+global $DIC;
 
 if ($DIC->database()->tableExists('udf_field_id_map')) {
     $query = "SELECT * FROM udf_field_id_map";
@@ -90,8 +91,11 @@ if ($DIC->database()->tableExists('udf_field_id_map')) {
     if(!empty($configs)) {
         foreach ($configs as $config) {
             $value = (int) $config->getValue();
-            $config->setValue($udf_definition_data[$value]);
-            $config->update();
+
+            if (!empty($udf_definition_data[$value])) {
+                $config->setValue($udf_definition_data[$value]);
+                $config->update();
+            }
         }
     }
 }

@@ -69,3 +69,4 @@ learning_suggestion_generate#:#Learning Suggestion Generate
 learning_suggestions_generated#:#Learning Suggestion Generated
 saved#:#Saved
 ref_id_not_a_course#:#The given Ref-ID does not belong to a course.
+something_went_wrong#:#Something went wrong

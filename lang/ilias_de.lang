@@ -69,3 +69,4 @@ learning_suggestion_generate#:#Learnemfehlungen Generieren
 learning_suggestions_generated#:#Learnemfehlungen wurden generiert
 saved#:#Gespeichert
 ref_id_not_a_course#:#Die angegebene Ref-ID gehört zu keinem Kurs.
+something_went_wrong#:#Something went wrong

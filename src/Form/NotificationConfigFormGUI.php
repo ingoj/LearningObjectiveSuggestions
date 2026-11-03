@@ -149,6 +149,11 @@ class NotificationConfigFormGUI
             $form = $form->withRequest($request);
             $data = $form->getData();
 
+            if (empty($data['configuration']) || empty($data['templates'])) {
+                $tpl = $DIC->ui()->mainTemplate();
+                $tpl->setOnScreenMessage('failure', $this->pl->txt('something_went_wrong'), true);
+            }
+
             foreach ($data['configuration'] as $key => $value) {
                 $config->set($key, $value);
             }

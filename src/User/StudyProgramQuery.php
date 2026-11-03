@@ -214,7 +214,7 @@ class StudyProgramQuery
 
         $results = $DIC->database()->queryF(
             $query,
-            ['integer'],
+            ['text'],
             [$field_id]
         );
 
