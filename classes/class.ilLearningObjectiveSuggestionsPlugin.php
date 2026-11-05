@@ -22,9 +22,9 @@ use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\Config\CourseConfigProvider;
  */
 class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
 {
-    public const PLUGIN_ID = "dhbwautolo";
+    public const string PLUGIN_ID = 'dhbwautolo';
 
-    public const PLUGIN_NAME = "LearningObjectiveSuggestions";
+    public const string PLUGIN_NAME = 'LearningObjectiveSuggestions';
 
     protected static ?ilLearningObjectiveSuggestionsPlugin $instance = null;
 
@@ -82,11 +82,11 @@ class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
         $this->db->dropTable(Config::TABLE_NAME, false);
         $this->db->dropTable(Notification::TABLE_NAME, false);
 
-        if (file_exists(ILIAS_DATA_DIR . "/learning-objective-modifications.log")) {
-            unlink(ILIAS_DATA_DIR . "/learning-objective-modifications.log");
+        if (file_exists(ILIAS_DATA_DIR . '/learning-objective-modifications.log')) {
+            unlink(ILIAS_DATA_DIR . '/learning-objective-modifications.log');
         }
-        if (file_exists(ILIAS_DATA_DIR . "/learning-objective-suggestions.log")) {
-            unlink(ILIAS_DATA_DIR . "/learning-objective-suggestions.log");
+        if (file_exists(ILIAS_DATA_DIR . '/learning-objective-suggestions.log')) {
+            unlink(ILIAS_DATA_DIR . '/learning-objective-suggestions.log');
         }
         return true;
     }
@@ -100,7 +100,7 @@ class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
     public function handleEvent(string $a_component, string $a_event, array $a_parameter): void
     {
         if (
-            $a_component == "components/ILIAS/Tracking"
+            $a_component == 'components/ILIAS/Tracking'
             && $a_event == 'updateStatus'
             && $a_parameter['old_status'] == \ilLPStatus::LP_STATUS_IN_PROGRESS_NUM
             && $a_parameter['status'] > \ilLPStatus::LP_STATUS_IN_PROGRESS_NUM
@@ -111,12 +111,12 @@ class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
             $config = new ConfigProvider();
 
             $ref_ids = $config->getCourseRefIds();
-            $tst_ref_ids = ilObject::_getAllReferences($a_parameter['obj_id']);
+            $test_ref_ids = ilObject::_getAllReferences($a_parameter['obj_id']);
 
             $parent_found = false;
             $parent = 0;
-            foreach ($tst_ref_ids as $ref_id) {
-                $parent = $DIC->repositoryTree()->getParentId($ref_id);
+            foreach ($test_ref_ids as $test_ref_id) {
+                $parent = $DIC->repositoryTree()->getParentId($test_ref_id);
                 if (in_array($parent, $ref_ids)) {
                     $parent_found = true;
                     break;
@@ -163,5 +163,44 @@ class ilLearningObjectiveSuggestionsPlugin extends ilEventHookPlugin
             new Log()
         );
         $send_suggestions->run($course, $user);
+    }
+
+    /**
+     * @return void
+     */
+    protected function afterActivation(): void
+    {
+        try {
+            $config = new ConfigProvider();
+
+            $course_ref_ids = $config->getCourseRefIds();
+
+            foreach ($course_ref_ids as $course_ref_id) {
+                $this->deleteCourseConfig((int) $course_ref_id, 'learning_objectives_main');
+                $this->deleteCourseConfig((int) $course_ref_id, 'learning_objectives_extended');
+            }
+        } catch (\Throwable $e) {
+            ilLoggerFactory::getLogger('plugin')->error('Activation failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * @param int    $course_ref_id
+     * @param string $config_key
+     * @return void
+     */
+    private function deleteCourseConfig(int $course_ref_id, string $config_key): void
+    {
+        $course_object_id = ilObject::_lookupObjId($course_ref_id);
+
+        $course_configs = CourseConfig::where([
+            'course_obj_id' => $course_object_id,
+            'cfg_key' => $config_key
+        ])->get();
+
+        foreach ($course_configs as $course_config) {
+            /** @var CourseConfig $course_config */
+            $course_config->delete();
+        }
     }
 }

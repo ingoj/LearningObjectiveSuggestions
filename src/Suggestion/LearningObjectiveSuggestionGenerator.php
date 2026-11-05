@@ -13,7 +13,9 @@ use SRAG\ILIAS\Plugins\LearningObjectiveSuggestions\User\User;
 class LearningObjectiveSuggestionGenerator
 {
     protected CourseConfigProvider $config;
+
     protected LearningObjectiveQuery $learning_objective_query;
+
     protected Log $log;
 
     /**
@@ -88,30 +90,19 @@ class LearningObjectiveSuggestionGenerator
             $suggestions = array_values(array_slice($suggestions, 0, $max));
         }
 
-        // Check that we have suggested at least one objective from the main and extended section
-        $main_objective_ids = $this->getMainObjectiveIds();
-        $extended_objective_ids = $this->getExtendedObjectiveIds();
-        $main_suggestions = array_filter($suggestions, function ($suggestion) use ($main_objective_ids) {
-            /** @var $suggestion LearningObjectiveScore */
-            return (in_array($suggestion->getObjectiveId(), $main_objective_ids));
-        });
-        $extended_suggestions = array_filter($suggestions, function ($suggestion) use ($extended_objective_ids) {
-            /** @var $suggestion LearningObjectiveScore */
-            return (in_array($suggestion->getObjectiveId(), $extended_objective_ids));
-        });
-        if (count($main_suggestions) == 0 || count($extended_suggestions) == 0) {
-            // Replace suggestion with lowest score either with one from the main or extended section
-            $objective_ids = (count($main_suggestions) == 0) ? $main_objective_ids : $extended_objective_ids;
-            $candidates = array_values(array_filter($scores, function ($score) use ($objective_ids) {
-                /** @var $score LearningObjectiveScore */
-                return (in_array($score->getObjectiveId(), $objective_ids));
-            }));
-            if (count($candidates)) {
-                $sorted = $this->sortDescByScore($candidates);
-                $suggestions[count($suggestions) - 1] = $sorted[0];
-            }
+        $objectiveIds = [];
+        foreach ($suggestions as $suggestion) {
+            $objectiveIds[] = $suggestion->getObjectiveId();
         }
 
+        $candidates = array_values(array_filter($scores, function ($score) use ($objectiveIds) {
+            return (in_array($score->getObjectiveId(), $objectiveIds));
+        }));
+
+        if (count($candidates)) {
+            $sorted = $this->sortDescByScore($candidates);
+            $suggestions[count($suggestions) - 1] = $sorted[0];
+        }
         return $suggestions;
     }
 
@@ -125,9 +116,11 @@ class LearningObjectiveSuggestionGenerator
             return array();
         }
         $learning_objective_query = $this->learning_objective_query;
+
         $config = $this->config;
         /** @var LearningObjectiveScore $score */
         $score = array_values($scores)[0];
+
         $user = $this->getUser($score->getUserId());
         usort($scores, function ($a, $b) use ($learning_objective_query, $user, $config) {
             /** @var $a LearningObjectiveScore */
@@ -168,6 +161,10 @@ class LearningObjectiveSuggestionGenerator
         $cache[$user_id] = $user;
         return $user;
     }
+
+    /**
+     * @return array
+     */
     protected function getMainObjectiveIds(): array
     {
         return array_map(function ($objective) {
@@ -175,6 +172,10 @@ class LearningObjectiveSuggestionGenerator
             return $objective->getId();
         }, $this->learning_objective_query->getMain());
     }
+
+    /**
+     * @return array
+     */
     protected function getExtendedObjectiveIds(): array
     {
         return array_map(function ($objective) {
